@@ -1,5 +1,6 @@
 import json
 import logging
+import traceback
 
 import venusian
 from pyramid.exceptions import ConfigurationError
@@ -9,6 +10,7 @@ from pyramid.renderers import null_renderer
 from pyramid.renderers import render
 from pyramid.response import Response
 from pyramid.security import NO_PERMISSION_REQUIRED
+from pyramid.settings import asbool
 
 from pyramid_rpc.compat import is_nonstr_iter
 from pyramid_rpc.mapper import MapplyViewMapper
@@ -42,6 +44,7 @@ class JsonRpcError(Exception):
                      message=self.message)
         if self.data is not None:
             error['data'] = self.data
+
         return error
 
 
@@ -109,7 +112,11 @@ def exception_view(exc, request):
         fault = JsonRpcParamsInvalid()
         log.debug('json-rpc invalid method params')
     else:
-        fault = JsonRpcInternalError()
+        message = None
+        if asbool(request.registry.settings.get('rpc.publish_exceptions')):
+            message = "".join(traceback.format_exception(*request.exc_info))
+
+        fault = JsonRpcInternalError(message = message)
         log.exception('json-rpc exception rpc_id:%s "%s"', rpc_id, exc)
 
     return make_error_response(request, fault, rpc_id)

@@ -72,6 +72,23 @@ class TestJSONRPCIntegration(unittest.TestCase):
             self.assertEqual(result, '')
         return result
 
+    def test_published_exception(self):
+        config = self.config
+        config.add_settings({'rpc.publish_exceptions': 'True'})
+        def fail(request):
+            raise Exception("fail")
+
+        config = self.config
+        config.include('pyramid_rpc.jsonrpc')
+        config.add_jsonrpc_endpoint('rpc', '/api/jsonrpc')
+        config.add_jsonrpc_method(fail, endpoint='rpc', method='dummy')
+        app = config.make_wsgi_app()
+        app = TestApp(app)
+        msg = self._callFUT(app, 'dummy', [])['error']['message']
+        self.assertTrue(msg.startswith("Traceback (most recent call last)"))
+        self.assertTrue(msg.endswith("Exception: fail\n"))
+
+
     def test_it(self):
         def view(request, a, b):
             return {'a': a, 'b': b}
